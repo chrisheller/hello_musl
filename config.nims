@@ -1,4 +1,5 @@
 from macros import error
+from strutils import parseBool
 
 when NimMajor < 1 and NimMinor <= 19 and NimPatch < 9:
   from ospaths import `/`, splitFile
@@ -48,6 +49,11 @@ let
   openSslLibFile = openSslLibDir / "libssl.a"
   openCryptoLibFile = openSslLibDir / "libcrypto.a"
   openSslIncludeDir = openSslInstallDir / "include/openssl"
+  # binary optimization
+  # - these default true to match previous defaults, but allow
+  #   overriding if you sometimes want the un-optimized binary
+  useStripIfAvailable = parseBool(getEnv("USE_STRIP", "true"))
+  useUpxIfAvailable = parseBool(getEnv("USE_UPX", "true"))
 
 # https://github.com/kaushalmodi/nimy_lisp
 proc dollar[T](s: T): string =
@@ -173,10 +179,10 @@ when defined(musl):
 proc binOptimize(binFile: string) =
   ## Optimize size of the ``binFile`` binary.
   echo ""
-  if findExe("strip") != "":
+  if useStripIfAvailable and findExe("strip") != "":
     echo "Running 'strip -s' .."
     exec "strip -s " & binFile
-  if findExe("upx") != "":
+  if useUpxIfAvailable and findExe("upx") != "":
     # https://github.com/upx/upx/releases/
     echo "Running 'upx --best' .."
     exec "upx --best " & binFile
