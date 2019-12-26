@@ -42,9 +42,15 @@ let
   # "no-async" is needed for openssl to compile using musl
   #   - https://gitter.im/nim-lang/Nim?at=5bbf75c3ae7be940163cc198
   #   - https://www.openwall.com/lists/musl/2016/02/04/5
-  # -DOPENSSL_NO_SECURE_MEMORY is needed to make openssl compile using musl.
+  #
+  # -DOPENSSL_NO_SECURE_MEMORY is needed in some environments to make 
+  #  openssl compile using musl. Adding kernel-headers-musl is recommended
+  #  instead of disabling the secure memory feature. If you really need this
+  #  you can export OPENSSL_NO_SECURE_MEMORY=true before compiling
   #   - https://github.com/openssl/openssl/issues/7207#issuecomment-420814524
-  openSslConfigureCmd = ["./Configure", openSslSeedConfigOsCompiler, "no-shared", "no-zlib", "no-async", "-fPIC", "-DOPENSSL_NO_SECURE_MEMORY", "--prefix=" & openSslInstallDir]
+  openSslUseNoSecureMemFlag = parseBool(getEnv("OPENSSL_NO_SECURE_MEMORY", "false"))
+  openSslMemFlag = if openSslUseNoSecureMemFlag: "-DOPENSSL_NO_SECURE_MEMORY" else: ""
+  openSslConfigureCmd = ["./Configure", openSslSeedConfigOsCompiler, "no-shared", "no-zlib", "no-async", "-fPIC", openSslMemFlag, "--prefix=" & openSslInstallDir]
   openSslLibDir = openSslInstallDir / "lib"
   openSslLibFile = openSslLibDir / "libssl.a"
   openCryptoLibFile = openSslLibDir / "libcrypto.a"
@@ -120,7 +126,8 @@ task installOpenSsl, "Installs OPENSSL using musl-gcc":
       putEnv("CC", "musl-gcc -static -idirafter /usr/include/ -idirafter /usr/include/x86_64-linux-gnu/")
       putEnv("C_INCLUDE_PATH", openSslIncludeDir)
       exec(openSslConfigureCmd.mapconcat())
-      echo "The insecure switch -DOPENSSL_NO_SECURE_MEMORY is needed so that OpenSSL can be compiled using MUSL."
+      if openSslMemFlag:
+        echo "The insecure switch -DOPENSSL_NO_SECURE_MEMORY is needed so that OpenSSL can be compiled using MUSL."
       exec("make -j8 depend")
       exec("make -j8")
       exec("make install_sw")
